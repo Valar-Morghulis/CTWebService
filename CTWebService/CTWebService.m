@@ -16,6 +16,7 @@ NSString *  CTWebServiceErrorDomain = @"CTWebServiceErrorDomain";
 NSString * CTWebServiceHTTPResponseCodeKey = @"CTWebServiceHTTPResponseCodeKey";
 NSString * CTWebServiceNotificationErrorKey = @"CTWebServiceNotificationErrorKey";
 
+static NSMutableDictionary * _backupCache = 0;//记录backup
 static NSOperationQueue *_queue = nil;
 
 @interface  CTWebService()
@@ -24,6 +25,7 @@ static NSOperationQueue *_queue = nil;
 @property(nonatomic,retain)NSError *_lastError;//错误
 @property(nonatomic,retain) NSMutableData *_cacheData;//
 @property(nonatomic,readwrite)LastExecutionResult _lastExecutionResult;
+@property(nonatomic,readwrite)BOOL _resumeAndRetry;//标记
 //
 @property(nonatomic,readwrite) NSUInteger _retriesInner;//
 //
@@ -41,11 +43,20 @@ static NSOperationQueue *_queue = nil;
 @synthesize _connectionOp;
 @synthesize _url;
 @synthesize _retriesInner;
-
+@synthesize _resumeAndRetry;
 + (void) initialize
 {
     _queue = [[NSOperationQueue alloc] init];
     [_queue setMaxConcurrentOperationCount:CTWebServiceMaxConcurrentConnections];
+    _backupCache = [[NSMutableDictionary alloc] init];
+    //
+    //_cache 结构
+    /*
+     key :webservice地址 ---> {
+     key :service ----> webservice,
+     key : backup ---> [backup1 ,backup2]
+     }
+     */
 }
 -(id)init
 {
@@ -53,6 +64,7 @@ static NSOperationQueue *_queue = nil;
     {
         self._retries = CTWebServiceRetries;
         self._lastExecutionResult = Result_None;
+        _resumeAndRetry = FALSE;//
     }
     return self;
 }
@@ -86,7 +98,12 @@ static NSOperationQueue *_queue = nil;
     self._postData = [dic objectForKey:@"_postData"];
     self._retries = [[dic objectForKey:@"_retries"] integerValue];
 }
-
+-(void)resumeAndRetry:(NSDictionary *)dic
+{
+    [self resume:dic];
+    _resumeAndRetry = TRUE;//标记
+    [self retry];
+}
 - (void) cancelLoading
 {
     [self cancelLoading_inner:TRUE];
@@ -317,6 +334,94 @@ static NSOperationQueue *_queue = nil;
         {
             [self._serviceDelegate afterWebServiceEnd:self];
         }
+        //
+        if(_resumeAndRetry)
+        {
+            NSDictionary * dic = [CTWebService popBackup:self];
+            if(dic)
+            {
+                [self resumeAndRetry:dic];
+            }
+            else
+            {
+                _resumeAndRetry = FALSE;//标记
+            }
+        }
     }
 }
+
+
+
+
+
+//
++(void)pushBackup:(CTWebService *)service
+{
+    NSString * key = [NSString stringWithFormat:@"%p",service];
+    NSMutableDictionary * value = [_backupCache objectForKey:key];
+    if(!value)
+    {
+        value = [NSMutableDictionary dictionary];
+        [_backupCache setObject:value forKey:key];
+        [value setObject:service forKey:@"service"];
+    }
+    NSMutableArray * array = [value objectForKey:@"backup"];
+    if(!array)
+    {
+        array = [NSMutableArray array];
+        [value setObject:array forKey:@"backup"];
+    }
+    [array addObject:[service backup]];
+}
++(NSDictionary *)popBackup:(CTWebService *)service
+{
+    if(service)
+    {
+        NSString * key = [NSString stringWithFormat:@"%p",service];
+        NSMutableDictionary * value = [_backupCache objectForKey:key];
+        if(value)
+        {
+            NSMutableArray * array = [value objectForKey:@"backup"];
+            if(array && [array count] > 0)
+            {
+                NSDictionary * res = [[array lastObject] retain];
+                [array removeObject:res];
+                return [res autorelease];
+            }
+            else
+            {
+                [_backupCache removeObjectForKey:key];//
+            }
+        }
+    }
+    return 0;
+}
++(void)resumeAndRetry:(CTWebService *)service
+{
+    NSDictionary * dic = [self popBackup:service];
+    if(dic)
+    {
+        [service resumeAndRetry:dic];//
+    }
+
+}
++(void)resumeAndRetryAll
+{
+    [_backupCache enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
+        CTWebService * service = [obj objectForKey:@"service"];
+        [self resumeAndRetry:service];
+    }];
+}
++(void)cleanup:(CTWebService *)service
+{
+    NSString * key = [NSString stringWithFormat:@"%p",service];
+    [_backupCache removeObjectForKey:key];
+}
++(void)cleanupAll
+{
+    [_backupCache removeAllObjects];//
+}
+
+
+
 @end

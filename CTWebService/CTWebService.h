@@ -49,6 +49,7 @@ typedef enum LastExecutionResultEnum
 @property(nonatomic,retain,readonly) NSMutableData *_cacheData;//
 @property(nonatomic,retain,readonly) NSURL *_url;//url
 @property(nonatomic,readonly)LastExecutionResult _lastExecutionResult;
+@property(nonatomic,readonly)BOOL _resumeAndRetry;//标记
 
 -(BOOL)isWorking;
 - (void) cancelLoading;//取消加载
@@ -60,5 +61,14 @@ typedef enum LastExecutionResultEnum
 
 -(NSDictionary *)backup;
 -(void)resume:(NSDictionary *)dic;
+-(void)resumeAndRetry:(NSDictionary *)dic;//自动循环所有的backup
+
+
++(void)pushBackup:(CTWebService *)service;
++(NSDictionary *)popBackup:(CTWebService *)service;
++(void)resumeAndRetry:(CTWebService *)service;
++(void)resumeAndRetryAll;//
++(void)cleanup:(CTWebService *)service;
++(void)cleanupAll;
 
 @end
