@@ -19,22 +19,29 @@ NSString * CTWebServiceNotificationErrorKey = @"CTWebServiceNotificationErrorKey
 static NSOperationQueue *_queue = nil;
 
 @interface  CTWebService()
+@property(nonatomic,retain) NSURL *_url;//url
+@property(nonatomic,retain) CTURLConnectionOperation *_connectionOp;//connectionOp
+@property(nonatomic,retain)NSError *_lastError;//错误
+@property(nonatomic,retain) NSMutableData *_cacheData;//
+@property(nonatomic,readwrite)LastExecutionResult _lastExecutionResult;
+//
+@property(nonatomic,readwrite) NSUInteger _retriesInner;//
+//
+@property(nonatomic,retain) NSData * _postData;//记录post数据
 @end
 
 
 @implementation CTWebService
-@synthesize _delegate;
-@synthesize _serviceTag;
+@synthesize _serviceDelegate;
 @synthesize _retries;
 @synthesize _lastError;
-@synthesize data;
+@synthesize _cacheData;
+@synthesize _postData;
 @synthesize _lastExecutionResult;
+@synthesize _connectionOp;
+@synthesize _url;
+@synthesize _retriesInner;
 
--(void)set_serviceTag:(int)newTag
-{
-    _previousTag = _serviceTag;
-    _serviceTag = newTag;
-}
 + (void) initialize
 {
     _queue = [[NSOperationQueue alloc] init];
@@ -44,16 +51,15 @@ static NSOperationQueue *_queue = nil;
 {
     if(self = [super init])
     {
-        _retries = CTWebServiceRetries;
-        _lastExecutionResult = Result_None;
-        _previousTag = -1;
+        self._retries = CTWebServiceRetries;
+        self._lastExecutionResult = Result_None;
     }
     return self;
 }
 -(void)clearData
 {
-    self._lastError = nil;
-    self.data = nil;
+    self._lastError = 0;
+    self._cacheData = 0;
 }
 - (void) dealloc
 {
@@ -61,110 +67,122 @@ static NSOperationQueue *_queue = nil;
     [self clearData];
 	[super dealloc];
 }
-- (void)startLoading:(NSTimer *)timer
+-(NSDictionary *)backup
 {
-	NSURLRequest *request = [NSURLRequest requestWithURL:_url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:CTWebServiceDefaultTimeOutInterval];
-    
-    _connectionOp = [[CTURLConnectionOperation alloc] initWithRequest:request delegate:self];
-    [_queue addOperation:_connectionOp];
+    NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+    if(self._serviceDelegate)
+        [dic setObject:self._serviceDelegate forKey:@"_serviceDelegate"];
+    if(self._url)
+        [dic setObject:self._url forKey:@"_url"];
+    if(self._postData)
+        [dic setObject:self._postData forKey:@"_postData"];
+    [dic setObject:[NSNumber numberWithInteger:self._retries] forKey:@"_retries"];
+    return dic;
 }
+-(void)resume:(NSDictionary *)dic
+{
+    self._serviceDelegate = [dic objectForKey:@"_serviceDelegate"];
+    self._url = [dic objectForKey:@"_url"];
+    self._postData = [dic objectForKey:@"_postData"];
+    self._retries = [[dic objectForKey:@"_retries"] integerValue];
+}
+
 - (void) cancelLoading
 {
     [self cancelLoading_inner:TRUE];
 }
 - (void) cancelLoading_inner:(BOOL)sendMessage
 {
-	if (_connectionOp)
+	if (self._connectionOp)
     {
-        _lastExecutionResult = Result_Canceld;
-        [_connectionOp cancel];
-        [_connectionOp release];
-        _connectionOp = nil;
-        if(sendMessage && _delegate)
+        self._lastExecutionResult = Result_Canceld;
+        [self._connectionOp cancel];
+    
+        self._connectionOp = 0;
+        if(sendMessage)
         {
-            [_delegate afterWebServiceEnd:self];
+            [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(startLoading) object:0];//cancel
+            if(self._serviceDelegate)
+                [_serviceDelegate afterWebServiceEnd:self];
         }
-        
     }
-    if (_url) [_url release]; _url = nil;
+    self._url = 0;
+    self._postData = 0;
 }
 
 -(BOOL)isWorking
 {
-    return _connectionOp != 0;
+    return self._connectionOp != 0;
 }
-- (void)startWithUrl:(NSString*)urlString
+//
+- (void)startLoading
+{
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self._url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:CTWebServiceDefaultTimeOutInterval];
+    
+    self._connectionOp = [[[CTURLConnectionOperation alloc] initWithRequest:request delegate:self] autorelease];
+    if(self._postData)
+    {
+        [request setHTTPMethod:@"POST"];
+        [request setHTTPBody:self._postData];
+    }
+    [_queue addOperation:self._connectionOp];
+}
+
+-(void)httpRequestWithURL:(NSString*)urlString
 {
     [self cancelLoading_inner:TRUE];
-    
     [self clearData];//清空buf
-    _url = [[NSURL alloc] initWithString:urlString];
-    NSMutableData * tData =[[NSMutableData alloc] initWithCapacity:0];
-    self.data = tData;
-    [tData release];
-    if(_delegate)
-    {
-        [_delegate beforWebServiceStart:self];
-    }
-    [self requestData];
-    
+    NSLog(@"url: %@", urlString);
+    self._url = [[[NSURL alloc] initWithString:urlString] autorelease];
+    [self retry];
 }
 -(void)postWidthUrl:(NSString *)urlString data:(NSData *)postData
 {
     [self cancelLoading_inner:TRUE];
     [self clearData];//清空buf
-    _url = [[NSURL alloc] initWithString:urlString];
-    NSMutableData * tData =[[NSMutableData alloc] initWithCapacity:0];
-    self.data = tData;
-    [tData release];
-    if(_delegate)
+    self._postData = postData;//
+    self._url = [[[NSURL alloc] initWithString:urlString] autorelease];
+    [self retry];
+}
+-(void)retry
+{
+    self._retriesInner = self._retries;
+    self._cacheData = [[[NSMutableData alloc] initWithCapacity:0] autorelease];
+    if(self._serviceDelegate)
     {
-        [_delegate beforWebServiceStart:self];
+        [self._serviceDelegate beforWebServiceStart:self];
     }
-    if (_connectionOp) // re-request
-    {
-        [_connectionOp cancel];
-        [_connectionOp release];
-        _connectionOp = nil;
-    }
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:_url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:CTWebServiceDefaultTimeOutInterval];
-    [request setHTTPMethod:@"POST"];
-    [request setHTTPBody:postData];
-    
-    _connectionOp = [[CTURLConnectionOperation alloc] initWithRequest:request delegate:self];
-    [_queue addOperation:_connectionOp];
-    
+    [self requestData];
 }
 -(void)requestData
 {
-	if (_connectionOp) // re-request
+	if (self._connectionOp) // re-request
 	{
-        [_connectionOp cancel];
-		[_connectionOp release];
-		_connectionOp = nil;
+        [self._connectionOp cancel];
+        self._connectionOp = 0;
         
-		if(_retries == 0) // No more retries
+		if(self._retriesInner == 0) // No more retries
 		{
             self._lastError = [NSError errorWithDomain:CTWebServiceErrorDomain
                                                   code:CTWebServiceHTTPStatus500Error
                                               userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                                         NSLocalizedString(@"HTTP Status 500", @""), NSLocalizedDescriptionKey, nil]];
-            _lastExecutionResult = Result_Error;
-            if(_delegate)
+           self._lastExecutionResult = Result_Error;
+            if(self._serviceDelegate)
             {
-                [_delegate afterWebServiceEnd:self];
+                [self._serviceDelegate afterWebServiceEnd:self];
             }
             [self cancelLoading_inner:FALSE];
             [self clearData];
 			return;
 		}
-		_retries--;
-        
-		[NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(startLoading:) userInfo:nil repeats:NO];
+		_retriesInner--;
+        [self performSelector:@selector(startLoading) withObject:0 afterDelay:1.0];
+		
 	}
 	else
 	{
-		[self startLoading:nil];
+        [self startLoading];
 	}
     
 }
@@ -178,7 +196,7 @@ static NSOperationQueue *_queue = nil;
 	if ([response isKindOfClass:[NSHTTPURLResponse class]])
         statusCode = [(NSHTTPURLResponse*)response statusCode];
 	
-    [self.data setLength:0];
+    [self._cacheData setLength:0];
     
 	if(statusCode < 400)
     { // Success
@@ -191,9 +209,9 @@ static NSOperationQueue *_queue = nil;
                                            userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                                      NSLocalizedString(@"The requested tile was not found on the server", @""), NSLocalizedDescriptionKey, nil]];
         _lastExecutionResult = Result_Error;
-        if(_delegate)
+        if(self._serviceDelegate)
         {
-            [_delegate afterWebServiceEnd:self];
+            [self._serviceDelegate afterWebServiceEnd:self];
         }
         [self clearData];
 	}
@@ -220,10 +238,10 @@ static NSOperationQueue *_queue = nil;
         else
         {
             [self cancelLoading_inner:FALSE];
-            _lastExecutionResult = Result_Error;
-            if(_delegate)
+            self._lastExecutionResult = Result_Error;
+            if(self._serviceDelegate)
             {
-                [_delegate afterWebServiceEnd:self];
+                [self._serviceDelegate afterWebServiceEnd:self];
             }
             [self clearData];
         }
@@ -232,7 +250,7 @@ static NSOperationQueue *_queue = nil;
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)newData
 {
-	[self.data appendData:newData];
+	[self._cacheData appendData:newData];
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
@@ -265,10 +283,10 @@ static NSOperationQueue *_queue = nil;
 	else
 	{
         [self cancelLoading_inner:FALSE];
-        _lastExecutionResult = Result_Error;
-        if(_delegate)
+        self._lastExecutionResult = Result_Error;
+        if(self._serviceDelegate)
         {
-            [_delegate afterWebServiceEnd:self];
+            [self._serviceDelegate afterWebServiceEnd:self];
         }
         [self clearData];
 	}
@@ -276,8 +294,7 @@ static NSOperationQueue *_queue = nil;
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-
-    if ([data length] == 0)
+    if ([self._cacheData length] == 0)
     {
         /*
          ----old-----
@@ -295,10 +312,10 @@ static NSOperationQueue *_queue = nil;
     else
     {
         [self cancelLoading_inner:FALSE];
-        _lastExecutionResult = Result_Succeed;
-        if(_delegate)
+        self._lastExecutionResult = Result_Succeed;
+        if(self._serviceDelegate)
         {
-            [_delegate afterWebServiceEnd:self];
+            [self._serviceDelegate afterWebServiceEnd:self];
         }
     }
 }

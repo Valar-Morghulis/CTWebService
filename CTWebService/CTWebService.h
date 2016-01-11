@@ -42,31 +42,23 @@ typedef enum LastExecutionResultEnum
 }LastExecutionResult;
 
 @interface CTWebService : NSObject
-{
-    int _serviceTag;
-    id<CTWebServiceDelegate> _delegate;
-    
-    NSUInteger _retries;//重试次数
-    NSError *_lastError;//错误
-	NSMutableData *data;//data
-    
-    LastExecutionResult _lastExecutionResult;//执行结果
-    
-    NSURL *_url;//url
-    CTURLConnectionOperation *_connectionOp;//connectionOp
-    int _previousTag;//
-}
-@property(nonatomic,readwrite)int _serviceTag;
-@property(nonatomic,assign)id<CTWebServiceDelegate> _delegate;
-@property(nonatomic,readwrite)NSUInteger _retries;//重试次数
-@property(nonatomic,retain)NSError *_lastError;//错误
-@property(nonatomic,retain)NSMutableData *data;//data
 
+@property(nonatomic,assign)id<CTWebServiceDelegate> _serviceDelegate;
+@property(nonatomic,readwrite)NSUInteger _retries;//重试次数
+@property(nonatomic,retain,readonly)NSError *_lastError;//错误
+@property(nonatomic,retain,readonly) NSMutableData *_cacheData;//
+@property(nonatomic,retain,readonly) NSURL *_url;//url
 @property(nonatomic,readonly)LastExecutionResult _lastExecutionResult;
 
-- (void) cancelLoading;
--(void)clearData;
--(void)startWithUrl:(NSString*)urlString;
 -(BOOL)isWorking;
--(void)postWidthUrl:(NSString *)urlString data:(NSData *)postData;
+- (void) cancelLoading;//取消加载
+-(void)clearData;//清空数据
+-(void)httpRequestWithURL:(NSString*)url;//get
+-(void)postWidthUrl:(NSString *)urlString data:(NSData *)postData;//post
+
+-(void)retry;//
+
+-(NSDictionary *)backup;
+-(void)resume:(NSDictionary *)dic;
+
 @end

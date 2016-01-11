@@ -8,23 +8,19 @@
 
 #import "CTURLConnectionOperation.h"
 @interface CTURLConnectionOperation () <NSURLConnectionDelegate, NSURLConnectionDataDelegate>
-@property(retain) NSURLConnection *connection;
-@property(retain) NSPort* port;
-
-@property BOOL executing;
-@property BOOL finished;
-
+@property(nonatomic,retain) NSURLConnection *_connection;
+@property(nonatomic,retain) NSPort* _port;
+@property BOOL _executing;
+@property BOOL _finished;
 - (void)completeOperation;
 
 @end
 
 @implementation CTURLConnectionOperation
-@synthesize connection = _connection;
-@synthesize executing = _executing;
-@synthesize finished = _finished;
-@synthesize port = _port;
 
-- (id)init {
+
+- (id)init
+{
     [self doesNotRecognizeSelector:_cmd];
     return nil;
 }
@@ -33,20 +29,19 @@
 {
     self = [super init];
     if (self) {
-        _connection = [[NSURLConnection alloc] initWithRequest:request delegate:delegate startImmediately:NO];
-        self.port = [NSPort port];
+        self._connection = [[[NSURLConnection alloc] initWithRequest:request delegate:delegate startImmediately:FALSE] autorelease];
+        self._port = [NSPort port];
     }
     return self;
 }
 
 - (void)dealloc
 {
+    [self._connection cancel];
+    self._connection = 0;
     
-    [_connection cancel];
-    [_connection release];
-    
-    [[NSRunLoop mainRunLoop] removePort:self.port forMode:NSDefaultRunLoopMode];
-    [_port release];
+    [[NSRunLoop mainRunLoop] removePort:self._port forMode:NSDefaultRunLoopMode];
+    self._port = 0;
     
     [super dealloc];
 }
@@ -58,28 +53,21 @@
     // Always check for cancellation before launching the task.
     if ([self isCancelled])
     {
-        // Must move the operation to the finished state if it is canceled.
-        [self willChangeValueForKey:@"isFinished"];
+        [self willChangeValueForKey:@"_isFinished"];
         
-        self.finished = YES;
-        
-        [self didChangeValueForKey:@"isFinished"];
+        self._finished = YES;
+        [self didChangeValueForKey:@"_isFinished"];
         return;
     }
-    
-    // If the operation is not canceled, begin executing the task.
-    [self willChangeValueForKey:@"isExecuting"];
-    
-    //the magical run loop trick will force NSURLConnection to call the delegate methods on main thread
-    [[NSRunLoop mainRunLoop] addPort:self.port forMode:NSDefaultRunLoopMode];
-    [_connection scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
-    self.executing = YES;
-    [self.connection start];
+ 
+    [self willChangeValueForKey:@"_isExecuting"];
+    [[NSRunLoop mainRunLoop] addPort:self._port forMode:NSDefaultRunLoopMode];
+    [self._connection scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+    self._executing = YES;
+    [self._connection start];
     [[NSRunLoop mainRunLoop] run];
     
-    
-    
-    [self didChangeValueForKey:@"isExecuting"];
+    [self didChangeValueForKey:@"_isExecuting"];
 }
 
 - (BOOL)isConcurrent
@@ -89,20 +77,21 @@
 
 - (BOOL)isExecuting
 {
-    return self.executing;
+    return self._executing;
 }
 
 - (BOOL)isFinished
 {
-    return self.finished;
+    return self._finished;
 }
 
 - (void)cancel
 {
     [super cancel];
     
-    if ([self isExecuting]) {
-        [self.connection cancel];
+    if ([self isExecuting])
+    {
+        [self._connection cancel];
         [self completeOperation];
     }
 }
@@ -111,14 +100,14 @@
 
 - (void)completeOperation
 {
-    [self willChangeValueForKey:@"isFinished"];
-    [self willChangeValueForKey:@"isExecuting"];
+    [self willChangeValueForKey:@"_isFinished"];
+    [self willChangeValueForKey:@"_isExecuting"];
     
-    self.executing = NO;
-    self.finished = YES;
+    self._executing = NO;
+    self._finished = YES;
     
-    [self didChangeValueForKey:@"isExecuting"];
-    [self didChangeValueForKey:@"isFinished"];
+    [self didChangeValueForKey:@"_isExecuting"];
+    [self didChangeValueForKey:@"_isFinished"];
 }
 
 @end
