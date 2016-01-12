@@ -53,21 +53,21 @@
     // Always check for cancellation before launching the task.
     if ([self isCancelled])
     {
-        [self willChangeValueForKey:@"_isFinished"];
+        [self willChangeValueForKey:@"isFinished"];
         
         self._finished = YES;
-        [self didChangeValueForKey:@"_isFinished"];
+        [self didChangeValueForKey:@"isFinished"];
         return;
     }
  
-    [self willChangeValueForKey:@"_isExecuting"];
+    [self willChangeValueForKey:@"isExecuting"];
     [[NSRunLoop mainRunLoop] addPort:self._port forMode:NSDefaultRunLoopMode];
     [self._connection scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
     self._executing = YES;
     [self._connection start];
     [[NSRunLoop mainRunLoop] run];
     
-    [self didChangeValueForKey:@"_isExecuting"];
+    [self didChangeValueForKey:@"isExecuting"];
 }
 
 - (BOOL)isConcurrent
@@ -100,14 +100,14 @@
 
 - (void)completeOperation
 {
-    [self willChangeValueForKey:@"_isFinished"];
-    [self willChangeValueForKey:@"_isExecuting"];
+    [self willChangeValueForKey:@"isFinished"];
+    [self willChangeValueForKey:@"isExecuting"];
     
     self._executing = NO;
     self._finished = YES;
     
-    [self didChangeValueForKey:@"_isExecuting"];
-    [self didChangeValueForKey:@"_isFinished"];
+    [self didChangeValueForKey:@"isExecuting"];
+    [self didChangeValueForKey:@"isFinished"];
 }
 
 @end

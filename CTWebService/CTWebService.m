@@ -68,11 +68,6 @@ static NSOperationQueue *_queue = nil;
     }
     return self;
 }
--(void)clearData
-{
-    self._lastError = 0;
-    self._cacheData = 0;
-}
 - (void) dealloc
 {
 	[self cancelLoading_inner:TRUE];
@@ -123,10 +118,14 @@ static NSOperationQueue *_queue = nil;
                 [_serviceDelegate afterWebServiceEnd:self];
         }
     }
+}
+-(void)clearData
+{
     self._url = 0;
     self._postData = 0;
+    self._lastError = 0;
+    self._cacheData = 0;
 }
-
 -(BOOL)isWorking
 {
     return self._connectionOp != 0;
@@ -190,7 +189,7 @@ static NSOperationQueue *_queue = nil;
                 [self._serviceDelegate afterWebServiceEnd:self];
             }
             [self cancelLoading_inner:FALSE];
-            [self clearData];
+            //[self clearData];
 			return;
 		}
 		_retriesInner--;
@@ -230,7 +229,7 @@ static NSOperationQueue *_queue = nil;
         {
             [self._serviceDelegate afterWebServiceEnd:self];
         }
-        [self clearData];
+        //[self clearData];
 	}
 	else
     {  // Other Error
@@ -260,7 +259,7 @@ static NSOperationQueue *_queue = nil;
             {
                 [self._serviceDelegate afterWebServiceEnd:self];
             }
-            [self clearData];
+            //[self clearData];
         }
 	}
 }
@@ -305,7 +304,7 @@ static NSOperationQueue *_queue = nil;
         {
             [self._serviceDelegate afterWebServiceEnd:self];
         }
-        [self clearData];
+        //[self clearData];
 	}
 }
 
@@ -334,6 +333,7 @@ static NSOperationQueue *_queue = nil;
         {
             [self._serviceDelegate afterWebServiceEnd:self];
         }
+        //[self clearData];
         //
         if(_resumeAndRetry)
         {
