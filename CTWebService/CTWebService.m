@@ -134,13 +134,12 @@ static NSOperationQueue *_queue = nil;
 - (void)startLoading
 {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self._url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:CTWebServiceDefaultTimeOutInterval];
-    
-    self._connectionOp = [[[CTURLConnectionOperation alloc] initWithRequest:request delegate:self] autorelease];
     if(self._postData)
     {
         [request setHTTPMethod:@"POST"];
         [request setHTTPBody:self._postData];
     }
+    self._connectionOp = [[[CTURLConnectionOperation alloc] initWithRequest:request delegate:self] autorelease];
     [_queue addOperation:self._connectionOp];
 }
 
