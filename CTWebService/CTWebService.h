@@ -47,9 +47,11 @@ typedef enum LastExecutionResultEnum
 @property(nonatomic,readwrite)NSUInteger _retries;//重试次数
 @property(nonatomic,retain,readonly)NSError *_lastError;//错误
 @property(nonatomic,retain,readonly) NSMutableData *_cacheData;//
-@property(nonatomic,retain,readonly) NSURL *_url;//url
 @property(nonatomic,readonly)LastExecutionResult _lastExecutionResult;
 @property(nonatomic,readonly)BOOL _resumeAndRetry;//标记
+
+@property(nonatomic,retain) NSURL *_url;//url
+@property(nonatomic,retain) NSData * _postData;//记录post数据
 
 -(BOOL)isWorking;
 - (void) cancelLoading;//取消加载

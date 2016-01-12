@@ -20,7 +20,6 @@ static NSMutableDictionary * _backupCache = 0;//记录backup
 static NSOperationQueue *_queue = nil;
 
 @interface  CTWebService()
-@property(nonatomic,retain) NSURL *_url;//url
 @property(nonatomic,retain) CTURLConnectionOperation *_connectionOp;//connectionOp
 @property(nonatomic,retain)NSError *_lastError;//错误
 @property(nonatomic,retain) NSMutableData *_cacheData;//
@@ -28,8 +27,6 @@ static NSOperationQueue *_queue = nil;
 @property(nonatomic,readwrite)BOOL _resumeAndRetry;//标记
 //
 @property(nonatomic,readwrite) NSUInteger _retriesInner;//
-//
-@property(nonatomic,retain) NSData * _postData;//记录post数据
 @end
 
 
@@ -78,20 +75,20 @@ static NSOperationQueue *_queue = nil;
 {
     NSMutableDictionary * dic = [NSMutableDictionary dictionary];
     if(self._serviceDelegate)
-        [dic setObject:self._serviceDelegate forKey:@"_serviceDelegate"];
+        [dic setObject:self._serviceDelegate forKey:@"CTWebService_serviceDelegate"];
     if(self._url)
-        [dic setObject:self._url forKey:@"_url"];
+        [dic setObject:self._url forKey:@"CTWebService_url"];
     if(self._postData)
-        [dic setObject:self._postData forKey:@"_postData"];
-    [dic setObject:[NSNumber numberWithInteger:self._retries] forKey:@"_retries"];
+        [dic setObject:self._postData forKey:@"CTWebService_postData"];
+    [dic setObject:[NSNumber numberWithInteger:self._retries] forKey:@"CTWebService_retries"];
     return dic;
 }
 -(void)resume:(NSDictionary *)dic
 {
-    self._serviceDelegate = [dic objectForKey:@"_serviceDelegate"];
-    self._url = [dic objectForKey:@"_url"];
-    self._postData = [dic objectForKey:@"_postData"];
-    self._retries = [[dic objectForKey:@"_retries"] integerValue];
+    self._serviceDelegate = [dic objectForKey:@"CTWebService_serviceDelegate"];
+    self._url = [dic objectForKey:@"CTWebService_url"];
+    self._postData = [dic objectForKey:@"CTWebService_postData"];
+    self._retries = [[dic objectForKey:@"CTWebService_retries"] integerValue];
 }
 -(void)resumeAndRetry:(NSDictionary *)dic
 {
@@ -148,7 +145,7 @@ static NSOperationQueue *_queue = nil;
     [self cancelLoading_inner:TRUE];
     [self clearData];//清空buf
     NSLog(@"url: %@", urlString);
-    self._url = [[[NSURL alloc] initWithString:urlString] autorelease];
+    self._url = [NSURL URLWithString:urlString];
     [self retry];
 }
 -(void)postWidthUrl:(NSString *)urlString data:(NSData *)postData
@@ -156,7 +153,7 @@ static NSOperationQueue *_queue = nil;
     [self cancelLoading_inner:TRUE];
     [self clearData];//清空buf
     self._postData = postData;//
-    self._url = [[[NSURL alloc] initWithString:urlString] autorelease];
+    self._url = [NSURL URLWithString:urlString];
     [self retry];
 }
 -(void)retry
