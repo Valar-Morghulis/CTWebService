@@ -325,23 +325,24 @@ static NSOperationQueue *_queue = nil;
     {
         [self cancelLoading_inner:FALSE];
         self._lastExecutionResult = Result_Succeed;
+        
+        //先获取backup
+        NSDictionary * backup = 0;
+        if(_resumeAndRetry)
+            backup = [CTWebService popBackup:self];
+        
+        //通知delegate
         if(self._serviceDelegate)
         {
             [self._serviceDelegate afterWebServiceEnd:self];
         }
         //[self clearData];
         //
+        //
         if(_resumeAndRetry)
         {
-            NSDictionary * dic = [CTWebService popBackup:self];
-            if(dic)
-            {
-                [self resumeAndRetry:dic];
-            }
-            else
-            {
-                _resumeAndRetry = FALSE;//标记
-            }
+            if(backup) [self resumeAndRetry:backup];
+            else _resumeAndRetry = FALSE;//标记
         }
     }
 }
