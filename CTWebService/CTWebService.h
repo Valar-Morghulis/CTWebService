@@ -35,10 +35,11 @@ enum
 @end
 typedef enum LastExecutionResultEnum
 {
-    Result_None,
-    Result_Canceld,
-    Result_Error,
-    Result_Succeed
+    Result_None,//
+    Result_Canceld,//用户取消
+    Result_Error,//网络错误 404、505等错误
+    Result_Succeed,//请求成功
+    Result_BadData//数据错误，用于第三方判断
 }LastExecutionResult;
 
 @interface CTWebService : NSObject
