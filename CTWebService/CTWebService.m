@@ -179,12 +179,12 @@ static NSOperationQueue *_queue = nil;
                                                   code:CTWebServiceHTTPStatus500Error
                                               userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                                         NSLocalizedString(@"HTTP Status 500", @""), NSLocalizedDescriptionKey, nil]];
+             [self cancelLoading_inner:FALSE];
            self._lastExecutionResult = Result_Error;
             if(self._serviceDelegate)
             {
                 [self._serviceDelegate afterWebServiceEnd:self];
             }
-            [self cancelLoading_inner:FALSE];
             //[self clearData];
 			return;
 		}
