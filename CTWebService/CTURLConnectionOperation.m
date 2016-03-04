@@ -30,7 +30,7 @@
     self = [super init];
     if (self) {
         self._connection = [[[NSURLConnection alloc] initWithRequest:request delegate:delegate startImmediately:FALSE] autorelease];
-        self._port = [NSPort port];
+        //self._port = [NSPort port];
     }
     return self;
 }
@@ -40,7 +40,7 @@
     [self._connection cancel];
     self._connection = 0;
     
-    [[NSRunLoop mainRunLoop] removePort:self._port forMode:NSDefaultRunLoopMode];
+    //[[NSRunLoop mainRunLoop] removePort:self._port forMode:NSDefaultRunLoopMode];
     self._port = 0;
     
     [super dealloc];
@@ -61,7 +61,7 @@
     }
  
     [self willChangeValueForKey:@"isExecuting"];
-    [[NSRunLoop mainRunLoop] addPort:self._port forMode:NSDefaultRunLoopMode];
+    //[[NSRunLoop mainRunLoop] addPort:self._port forMode:NSDefaultRunLoopMode];
     [self._connection scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
     self._executing = YES;
     [self._connection start];
