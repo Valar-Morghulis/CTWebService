@@ -43,17 +43,20 @@ static NSOperationQueue *_queue = nil;
 @synthesize _resumeAndRetry;
 + (void) initialize
 {
-    _queue = [[NSOperationQueue alloc] init];
-    [_queue setMaxConcurrentOperationCount:CTWebServiceMaxConcurrentConnections];
-    _backupCache = [[NSMutableDictionary alloc] init];
-    //
-    //_cache 结构
-    /*
-     key :webservice地址 ---> {
-     key :service ----> webservice,
-     key : backup ---> [backup1 ,backup2]
-     }
-     */
+    if(self == [CTWebService class])
+    {
+        _queue = [[NSOperationQueue alloc] init];
+        [_queue setMaxConcurrentOperationCount:CTWebServiceMaxConcurrentConnections];
+        _backupCache = [[NSMutableDictionary alloc] init];
+        //
+        //_cache 结构
+        /*
+         key :webservice地址 ---> {
+         key :service ----> webservice,
+         key : backup ---> [backup1 ,backup2]
+         }
+         */
+    }
 }
 -(id)init
 {
